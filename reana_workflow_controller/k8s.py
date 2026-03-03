@@ -39,6 +39,9 @@ from reana_workflow_controller.config import (  # isort:skip
     REANA_KUBERNETES_JOBS_SCRATCH_VOLUME_SIZE_LIMIT,
     REANA_RUNTIME_FS_GROUP_CHANGE_POLICY,
     REANA_RUNTIME_SESSIONS_SUPPLEMENTAL_GROUPS,
+    REANA_DATASTORE_SECRET,
+    REANA_DATASTORE_IMAGE,
+    REANA_DATASTORE_ENABLED,
 )
 from reana_workflow_controller.errors import (
     REANAInteractiveSessionError,
@@ -248,16 +251,39 @@ class InteractiveDeploymentK8sBuilder(object):
         self.image = image
         self.port = port
         self.path = path
-        self.cvmfs_repos = cvmfs_repos or []
+        self.cvmfs_repos = (cvmfs_repos or [],)
+        self.image_pull_secrets = []
+        self.datastore_enabled = False
         metadata = client.V1ObjectMeta(
             name=deployment_name,
             labels={"reana_workflow_mode": "session"},
         )
         self._session_container = client.V1Container(
-            name=self.deployment_name, image=self.image, env=[], volume_mounts=[]
+            name=self.deployment_name, image=self.image, env=[], volume_mounts=[
+                ], ports=[client.V1ContainerPort(container_port=self.port)]
         )
+        containers = [self._session_container]
+        if REANA_DATASTORE_ENABLED:
+            user_secrets = UserSecretsStore.fetch(self.owner_id)
+            all_env = user_secrets.get_env_secrets_as_k8s_spec()
+            s3_env = [
+                s for s in all_env if s.get("name", "").startswith("S3_TO_LOCAL_")
+            ]
+            if s3_env:
+                self.datastore_enabled = True
+            if self.datastore_enabled:
+                self._s3_container = client.V1Container(
+                    name="datastore",
+                    image=REANA_DATASTORE_IMAGE,
+                    env=[],
+                    volume_mounts=[],
+                    ports=[],
+                    image_pull_policy="Always",
+                )
+                containers.append(self._s3_container)
+
         self._pod_spec = client.V1PodSpec(
-            containers=[self._session_container],
+            containers=containers,
             volumes=[],
             node_selector=REANA_RUNTIME_SESSIONS_KUBERNETES_NODE_LABEL,
             # Disable service discovery with env variables, so that the environment is
@@ -285,7 +311,8 @@ class InteractiveDeploymentK8sBuilder(object):
                 number=InteractiveDeploymentK8sBuilder.internal_service_port
             ),
         )
-        ingress_backend = client.V1IngressBackend(service=ingress_service_backend)
+        ingress_backend = client.V1IngressBackend(
+            service=ingress_service_backend)
         ingress_rule_value = client.V1HTTPIngressRuleValue(
             [
                 client.V1HTTPIngressPath(
@@ -295,7 +322,8 @@ class InteractiveDeploymentK8sBuilder(object):
         )
         spec = client.V1IngressSpec(
             rules=[
-                client.V1IngressRule(http=ingress_rule_value, host=REANA_INGRESS_HOST)
+                client.V1IngressRule(
+                    http=ingress_rule_value, host=REANA_INGRESS_HOST)
             ]
         )
         if REANA_INGRESS_CLASS_NAME:
@@ -321,9 +349,15 @@ class InteractiveDeploymentK8sBuilder(object):
             type="ClusterIP",
             ports=[
                 client.V1ServicePort(
+                    name="interactive-session",
                     port=InteractiveDeploymentK8sBuilder.internal_service_port,
                     target_port=self.port,
-                )
+                ),
+                client.V1ServicePort(
+                    name="datastore",
+                    port=5000,
+                    target_port=5000,
+                ),
             ],
             selector={"app": self.deployment_name},
         )
@@ -379,6 +413,72 @@ class InteractiveDeploymentK8sBuilder(object):
         self._session_container.volume_mounts.append(volume_mount)
         self._pod_spec.volumes.append(volume)
 
+    def add_image_pull_secrets(self):
+        """Attach the configured image pull secrets to scheduler and worker containers."""
+        if REANA_DATASTORE_SECRET:
+            self._pod_spec.image_pull_secrets = [
+                client.V1LocalObjectReference(name=REANA_DATASTORE_SECRET)
+            ]
+
+    def setup_s3_storage(self):
+        """Configure memory-backed empty_dir volume for S3 sidecar with mount propagation."""
+        volume_name = "s3-mounts"
+
+        # Use memory-backed emptyDir as per K8s recommendations for mount propagation
+        volume = client.V1Volume(
+            name=volume_name,
+            empty_dir=client.V1EmptyDirVolumeSource(
+                medium="Memory",
+                size_limit="1Gi"
+            )
+        )
+
+        volume_mount = client.V1VolumeMount(
+            name=volume_name,
+            mount_path="/data/s3/",
+            mount_propagation="HostToContainer",
+        )
+
+        self._session_container.volume_mounts.append(volume_mount)
+
+        volume_mount = client.V1VolumeMount(
+            name=volume_name, mount_path="/s3-data", mount_propagation="Bidirectional"
+        )
+
+        self._s3_container.volume_mounts.append(volume_mount)
+
+        self._pod_spec.volumes.append(volume)
+
+    def setup_s3_sidecar(self):
+        """Add the sidecar for s3 mounts with minimal required privileges."""
+        # Define the volume mount for /dev/fuse
+        fuse_volume_mount = client.V1VolumeMount(
+            name="fuse-device", mount_path="/dev/fuse"
+        )
+
+        # Define the volume for /dev/fuse
+        fuse_volume = client.V1HostPathVolumeSource(path="/dev/fuse")
+
+        # Append the volume mount and volume to the sidecar container and pod spec
+        self._s3_container.volume_mounts.append(fuse_volume_mount)
+        self._pod_spec.volumes.append(client.V1Volume(
+            name="fuse-device", host_path=fuse_volume))
+
+        # Security context for FUSE - privileged required for bidirectional mounting
+        # Note: allowPrivilegeEscalation must be true when privileged=true per K8s rules
+        security_context = client.V1SecurityContext(
+            run_as_user=0,
+            allow_privilege_escalation=True,  # Required when privileged=True
+            capabilities=client.V1Capabilities(
+                add=["SYS_ADMIN"],
+                drop=["ALL"]  # Drop all other capabilities
+            ),
+            privileged=True,  # Required by K8s for bidirectional mount propagation
+            seccomp_profile=client.V1SeccompProfile(type="RuntimeDefault"),
+            read_only_root_filesystem=False,
+        )
+        self._s3_container.security_context = security_context
+
     def add_cvmfs_repo_mounts(self, cvmfs_repos):
         """Add mounts for the provided CVMFS repositories to the deployment.
 
@@ -410,6 +510,12 @@ class InteractiveDeploymentK8sBuilder(object):
                 ),
             )
         )
+        
+    def add_run_with_root_permissions(self):
+        """Run interactive session with root."""
+        security_context=client.V1SecurityContext(
+            run_as_user=0, privileged=True
+        )
 
     def add_scratch_volume(self, name, mount_path):
         """Mount an ephemeral writable scratch volume at the given path.
@@ -427,8 +533,8 @@ class InteractiveDeploymentK8sBuilder(object):
 
     def add_session_secret(self, session_secret):
         """Expose a notebook token through a per-session Kubernetes Secret."""
-        secret_name = "{}-auth".format(self.deployment_name)
-        secret = client.V1Secret(
+        secret_name="{}-auth".format(self.deployment_name)
+        secret=client.V1Secret(
             api_version="v1",
             kind="Secret",
             metadata=client.V1ObjectMeta(
@@ -452,40 +558,59 @@ class InteractiveDeploymentK8sBuilder(object):
         # first object as the owner root and session shutdown deletes it to
         # cascade cleanup.  The Secret can still be created before the
         # Deployment while retaining that ownership chain.
-        objects = {"ingress": self.kubernetes_objects["ingress"], "secret": secret}
+        objects={
+            "ingress": self.kubernetes_objects["ingress"], "secret": secret}
         objects.update(
             (name, value)
             for name, value in self.kubernetes_objects.items()
             if name != "ingress"
         )
-        self.kubernetes_objects = objects
+        self.kubernetes_objects=objects
         self.add_secret_environment_variable(
             "NOTEBOOK_ARGS", secret_name, "notebook_args"
         )
 
     def add_run_with_runtime_user_permissions(self):
         """Run interactive session with the default non-root REANA user."""
-        security_context = _restricted_session_container_security_context()
+        security_context=_restricted_session_container_security_context()
         if REANA_KUBERNETES_JOBS_READ_ONLY_ROOT_FILESYSTEM:
-            security_context = security_context or client.V1SecurityContext()
-            security_context.read_only_root_filesystem = True
-        self._session_container.security_context = security_context
+            security_context=security_context or client.V1SecurityContext()
+            security_context.read_only_root_filesystem=True
+        self._session_container.security_context=security_context
 
     def add_user_secrets(self):
         """Mount the "file" secrets and set the "env" secrets in the container."""
-        user_secrets = UserSecretsStore.fetch(self.owner_id)
-        environment_secrets = _filter_reserved_session_env_var_collisions(
+        user_secrets=UserSecretsStore.fetch(self.owner_id)
+        environment_secrets=_filter_reserved_session_env_var_collisions(
             user_secrets.get_env_secrets_as_k8s_spec()
         )
 
         # mount file secrets
-        secrets_volume = user_secrets.get_file_secrets_volume_as_k8s_specs()
-        secrets_volume_mount = user_secrets.get_secrets_volume_mount_as_k8s_spec()
+        secrets_volume=user_secrets.get_file_secrets_volume_as_k8s_specs()
+        secrets_volume_mount=user_secrets.get_secrets_volume_mount_as_k8s_spec()
         self._pod_spec.volumes.append(secrets_volume)
         self._session_container.volume_mounts.append(secrets_volume_mount)
 
-        # set environment secrets
-        self._session_container.env += environment_secrets
+        # build env arrays for different containers
+        # sorting s3 variables to only be mounted in sidecar
+        all_env=environment_secrets
+        s3_env=[]
+        session_env=[]
+
+        if self.datastore_enabled:
+            for secret in all_env:
+                secret_name=secret.get("name", "")
+                if secret_name.startswith("S3_TO_LOCAL_"):
+                    s3_env.append(secret)
+                else:
+                    session_env.append(secret)
+            # set environment secrets without s3 secrets
+            self._session_container.env=+ session_env
+            # mount s3 secretes
+            if REANA_DATASTORE_ENABLED:
+                self._s3_container.env=+ s3_env
+        else:
+            self._session_container.env=+ all_env
 
     def get_deployment_objects(self):
         """Return the alrady built Kubernetes objects."""
@@ -530,15 +655,16 @@ def build_interactive_jupyter_deployment_k8s_objects(
     """
     if not session_secret:
         raise ValueError("An interactive session secret is required.")
-    cvmfs_repos = cvmfs_repos or []
-    port = JUPYTER_INTERACTIVE_SESSION_DEFAULT_PORT
-    deployment_builder = InteractiveDeploymentK8sBuilder(
+    cvmfs_repos=cvmfs_repos or []
+    port=JUPYTER_INTERACTIVE_SESSION_DEFAULT_PORT
+    deployment_builder=InteractiveDeploymentK8sBuilder(
         deployment_name, workflow_id, owner_id, workspace, image, port, access_path
     )
-    command_args = [
+    command_args=[
         "start-notebook.sh",
         "--NotebookApp.base_url='{base_url}'".format(base_url=access_path),
-        "--notebook-dir='{workflow_workspace}'".format(workflow_workspace=workspace),
+        "--notebook-dir='{workflow_workspace}'".format(
+            workflow_workspace=workspace),
         f'--NotebookApp.terminado_settings={{"shell_command": ["/usr/bin/bash", "-c", "cd \'{workspace}\' && bash"]}}',
     ]
     if REANA_KUBERNETES_JOBS_READ_ONLY_ROOT_FILESYSTEM:
@@ -548,14 +674,19 @@ def build_interactive_jupyter_deployment_k8s_objects(
         # (and pip/ipython, which derive their paths from $HOME) keep working;
         # XDG_CACHE_HOME and the Jupyter runtime/data dirs all fall back to
         # paths under $HOME, which is now writable.
-        session_home = "/home/reana"
+        session_home="/home/reana"
         deployment_builder.add_scratch_volume("reana-session-tmp", "/tmp")
-        deployment_builder.add_scratch_volume("reana-session-home", session_home)
+        deployment_builder.add_scratch_volume(
+            "reana-session-home", session_home)
         deployment_builder.add_environment_variable("HOME", session_home)
 
     deployment_builder.add_command_arguments(command_args)
     deployment_builder.add_session_secret(session_secret)
     deployment_builder.add_reana_shared_storage()
+    deployment_builder.add_image_pull_secrets()
+    if REANA_DATASTORE_ENABLED and deployment_builder.datastore_enabled:
+        deployment_builder.setup_s3_sidecar()
+        deployment_builder.setup_s3_storage()
     if cvmfs_repos:
         deployment_builder.add_cvmfs_repo_mounts(cvmfs_repos)
     if expose_secrets:
@@ -563,13 +694,14 @@ def build_interactive_jupyter_deployment_k8s_objects(
     deployment_builder.add_environment_variable("NB_GID", 0)
     # Changes umask so all files generated by the Jupyter Notebook can be
     # modified by the root group users.
-    deployment_builder.add_environment_variable("NB_UMASK", REANA_WORKFLOW_UMASK)
+    deployment_builder.add_environment_variable(
+        "NB_UMASK", REANA_WORKFLOW_UMASK)
     deployment_builder.add_environment_variable("REANA_WORKSPACE", workspace)
     deployment_builder.add_run_with_runtime_user_permissions()
     return deployment_builder.get_deployment_objects()
 
 
-build_interactive_k8s_objects = {
+build_interactive_k8s_objects={
     "jupyter": build_interactive_jupyter_deployment_k8s_objects
 }
 """Build interactive k8s deployment objects."""
@@ -582,20 +714,20 @@ def instantiate_chained_k8s_objects(kubernetes_objects, namespace):
         key and the object itself as value.
     :param namespace: Kubernetes namespace where the objects will be deployed.
     """
-    instantiate_k8s_object = {
+    instantiate_k8s_object={
         "secret": current_k8s_corev1_api_client.create_namespaced_secret,
         "deployment": current_k8s_appsv1_api_client.create_namespaced_deployment,
         "service": current_k8s_corev1_api_client.create_namespaced_service,
         "ingress": current_k8s_networking_api_client.create_namespaced_ingress,
     }
     try:
-        parent_k8s_object_references = None
+        parent_k8s_object_references=None
         for index, obj in enumerate(kubernetes_objects.items()):
-            kind = obj[0]
-            k8s_object = obj[1]
+            kind=obj[0]
+            k8s_object=obj[1]
             if index == 0:
-                result = instantiate_k8s_object[kind](namespace, k8s_object)
-                parent_k8s_object_references = [
+                result=instantiate_k8s_object[kind](namespace, k8s_object)
+                parent_k8s_object_references=[
                     {
                         "uid": result._metadata.uid,
                         "kind": result._kind,
@@ -604,8 +736,8 @@ def instantiate_chained_k8s_objects(kubernetes_objects, namespace):
                     }
                 ]
             else:
-                k8s_object.metadata.owner_references = parent_k8s_object_references
-                result = instantiate_k8s_object[kind](namespace, k8s_object)
+                k8s_object.metadata.owner_references=parent_k8s_object_references
+                result=instantiate_k8s_object[kind](namespace, k8s_object)
     except KeyError:
         raise Exception("Unsupported Kubernetes object kind {}.".format(kind))
     except ApiException as e:
@@ -623,7 +755,7 @@ def delete_k8s_objects_if_exist(kubernetes_objects, namespace):
     :param namespace: Kubernetes namespace where the objects will be deleted
         from.
     """
-    delete_k8s_object = {
+    delete_k8s_object={
         "secret": current_k8s_corev1_api_client.delete_namespaced_secret,
         "deployment": current_k8s_appsv1_api_client.delete_namespaced_deployment,
         "service": current_k8s_corev1_api_client.delete_namespaced_service,
@@ -632,8 +764,8 @@ def delete_k8s_objects_if_exist(kubernetes_objects, namespace):
     try:
         for obj in kubernetes_objects.items():
             try:
-                kind = obj[0]
-                k8s_object = obj[1]
+                kind=obj[0]
+                k8s_object=obj[1]
                 delete_k8s_object[kind](k8s_object.metadata.name, namespace)
             except ApiException as k8s_api_exception:
                 if k8s_api_exception.reason == "Not Found":
@@ -656,7 +788,8 @@ def delete_k8s_ingress_object(ingress_name, namespace):
         )
     except ApiException as k8s_api_exception:
         if k8s_api_exception.reason == "Not Found":
-            raise Exception("K8s object was not found {}.".format(ingress_name))
+            raise Exception(
+                "K8s object was not found {}.".format(ingress_name))
         raise Exception(
             "Exception when calling ExtensionsV1beta1->"
             "Api->delete_namespaced_ingress: {}\n".format(k8s_api_exception)
@@ -668,7 +801,8 @@ def check_pod_readiness_by_prefix(
 ):
     """Check the readiness of a Pod in the given namespace whose name starts with the specified prefix. We assume that there exists 0 or 1 pod with a given prefix."""
     try:
-        pods = current_k8s_corev1_api_client.list_namespaced_pod(namespace=namespace)
+        pods=current_k8s_corev1_api_client.list_namespaced_pod(
+            namespace=namespace)
 
         for pod in pods.items:
             if pod.metadata.name.startswith(pod_name_prefix):
@@ -690,7 +824,8 @@ def check_pod_status_by_prefix(
 ):
     """Check the pod status of a Pod in the given namespace whose name starts with the specified prefix. We assume that there exists 0 or 1 pod with a given prefix."""
     try:
-        pods = current_k8s_corev1_api_client.list_namespaced_pod(namespace=namespace)
+        pods=current_k8s_corev1_api_client.list_namespaced_pod(
+            namespace=namespace)
 
         for pod in pods.items:
             if pod.metadata.name.startswith(pod_name_prefix):
