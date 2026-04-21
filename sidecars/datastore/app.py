@@ -48,6 +48,8 @@ def main_logic():
     aliases = mount.mount()
     MOUNTING_COMPLETE = True
     print("S3 system ready.")
+    with open("/s3-data/.readiness_probe.txt", "a") as f:
+        f.write("READY")
 
 
 if __name__ == "__main__":

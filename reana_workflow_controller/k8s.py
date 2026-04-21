@@ -236,6 +236,29 @@ class InteractiveDeploymentK8sBuilder(object):
 
     def add_command_arguments(self, args):
         """Add command line arguments in addition to the command."""
+        check_mounts_script = """
+            #!/bin/bash
+
+            TARGET_FILE="/data/s3/.readiness_probe.txt"
+            TIMEOUT=30
+            ELAPSED=0
+
+            while [ $ELAPSED -lt $TIMEOUT ]; do
+                # Check if file exists AND contains the string "READY"
+                if [ -f "$TARGET_FILE" ] && grep -q "READY" "$TARGET_FILE"; then
+                    echo "Mount verified: Readiness probe detected."
+                    exit 0
+                fi
+
+                sleep 1
+                ((ELAPSED++))
+            done
+
+            echo "Error: Failed to find 'READY' in $TARGET_FILE within $TIMEOUT seconds."
+            echo "Please check your S3 mount status and credentials."
+            exit 1
+            """
+        args.insert(0, f"bash -c '{check_mounts_script}'")
         self._session_container.args = args
 
     def add_reana_shared_storage(self):
