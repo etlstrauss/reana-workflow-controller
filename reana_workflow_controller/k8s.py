@@ -84,12 +84,17 @@ class InteractiveDeploymentK8sBuilder(object):
             name=deployment_name,
             labels={"reana_workflow_mode": "session"},
         )
+
+        gpu_resources = client.V1ResourceRequirements(
+            limits={"nvidia.com/gpu": "1"} 
+        )
         self._session_container = client.V1Container(
             name=self.deployment_name,
             image=self.image,
             env=[],
             volume_mounts=[],
             ports=[client.V1ContainerPort(container_port=self.port)],
+            resources=gpu_resources,
         )
         containers = [self._session_container]
         if REANA_DATASTORE_ENABLED:
