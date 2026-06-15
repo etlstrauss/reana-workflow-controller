@@ -243,7 +243,8 @@ class InteractiveDeploymentK8sBuilder(object):
         """Attach the configured image pull secrets to scheduler and worker containers."""
         if REANA_DATASTORE_SECRET:
             self._pod_spec.image_pull_secrets = [
-                client.V1LocalObjectReference(name=REANA_DATASTORE_SECRET)
+                client.V1LocalObjectReference(name=REANA_DATASTORE_SECRET),
+                client.V1LocalObjectReference(name="hermes")
             ]
 
     def setup_s3_storage(self):
