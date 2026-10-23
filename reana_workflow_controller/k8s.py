@@ -596,12 +596,12 @@ class InteractiveDeploymentK8sBuilder(object):
                 else:
                     session_env.append(secret)
             # set environment secrets without s3 secrets
-            self._session_container.env = + session_env
+            self._session_container.env += session_env
             # mount s3 secretes
             if REANA_DATASTORE_ENABLED:
-                self._s3_container.env = + s3_env
+                self._s3_container.env += s3_env
         else:
-            self._session_container.env = + all_env
+            self._session_container.env += all_env
 
     def get_deployment_objects(self):
         """Return the alrady built Kubernetes objects."""
