@@ -386,11 +386,6 @@ JOB_CONTROLLER_IMAGE = os.getenv(
 )
 """Default image for REANA Job Controller sidecar."""
 
-JOB_CONTROLLER_IMAGE_PULL_SECRET = os.getenv(
-    "REANA_JOB_CONTROLLER_IMAGE_PULL_SECRET"
-)
-"""Image pull Secret for pulling the REANA Job Controller image inside job pods."""
-
 JOB_CONTROLLER_ENV_VARS = _env_vars_dict_to_k8s_list(
     json.loads(os.getenv("REANA_JOB_CONTROLLER_ENV_VARS", "{}"))
 )
@@ -798,10 +793,7 @@ if _invalid_gc:
         "Invalid FORCE_GARBAGE_COLLECTION values: "
         f"{invalid_gc_values}. Valid values: {valid_gc_values}"
     )
-REANA_RUNTIME_JOBS_KUBERNETES_TOLERATIONS = os.getenv(
-    "REANA_RUNTIME_JOBS_KUBERNETES_TOLERATIONS"
-)
-"""Tolerations for jobs"""
+
 REANA_DATASTORE_ENABLED = os.getenv("REANA_DATASTORE_ENABLED") == "true"
 """Set datastore (s3) sidecar for interactive sessions enabled or disabled"""
 
@@ -811,8 +803,5 @@ if (REANA_DATASTORE_ENABLED):
     )
     """Optional Image for datastore (s3) sidecar for interactive sessions"""
 
-    REANA_DATASTORE_SECRET = os.getenv("REANA_DATASTORE_SECRET")
-    """Optional secret for datastore (s3) sidecar for interactive sessions"""
 else:
     REANA_DATASTORE_IMAGE = ""
-    REANA_DATASTORE_SECRET = ""

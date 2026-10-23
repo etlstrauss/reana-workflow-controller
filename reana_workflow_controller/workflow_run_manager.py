@@ -118,7 +118,6 @@ from reana_workflow_controller.config import (  # isort:skip
     JOB_CONTROLLER_IMAGE_PULL_SECRET,
     REANA_DATASTORE_IMAGE,
     REANA_DATASTORE_ENABLED,
-    REANA_DATASTORE_SECRET,
 )
 
 NSS_WRAPPER_VOLUME_NAME = "nss-wrapper"
@@ -977,8 +976,6 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
                     "name": "NSS_WRAPPER_PASSWD",
                     "value": NSS_WRAPPER_PASSWD_PATH,
                 },
-                {"name": "IMAGE_PULL_SECRETS",
-                    "value": ",".join(IMAGE_PULL_SECRETS)},
                 {"name": "KUEUE_ENABLED", "value": str(KUEUE_ENABLED)},
                 {
                     "name": "REANA_SQLALCHEMY_DATABASE_URI",
@@ -1085,10 +1082,6 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
                     "name": "REANA_DATASTORE_ENABLED",
                     "value": json.dumps(REANA_DATASTORE_ENABLED),
                 },
-                {
-                    "name": "REANA_DATASTORE_SECRET",
-                    "value": json.dumps(REANA_DATASTORE_SECRET).replace('"', ""),
-                },
             ]
         )
         if REANA_KUBERNETES_JOBS_MIN_USER_UID:
@@ -1114,13 +1107,6 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
                 {
                     "name": "REANA_RUNTIME_JOBS_KUBERNETES_NODE_LABEL",
                     "value": os.getenv("REANA_RUNTIME_JOBS_KUBERNETES_NODE_LABEL"),
-                },
-            )
-        if REANA_RUNTIME_JOBS_KUBERNETES_TOLERATIONS:
-            job_controller_container.env.append(
-                {
-                    "name": "REANA_RUNTIME_JOBS_KUBERNETES_TOLERATIONS",
-                    "value": os.getenv("REANA_RUNTIME_JOBS_KUBERNETES_TOLERATIONS"),
                 },
             )
         if requires_dask(self.workflow):
@@ -1176,7 +1162,6 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
             init_containers=[],
             security_context=pod_security_context,
             termination_grace_period_seconds=REANA_RUNTIME_BATCH_TERMINATION_GRACE_PERIOD,
-            image_pull_secrets=[],
         )
 
         spec.template.spec.service_account_name = (
@@ -1242,11 +1227,6 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
         if kerberos:
             volumes += kerberos.volumes
             spec.template.spec.init_containers.append(kerberos.init_container)
-
-        if JOB_CONTROLLER_IMAGE_PULL_SECRET:
-            spec.template.spec.image_pull_secrets.append(
-                client.V1LocalObjectReference(name=JOB_CONTROLLER_IMAGE_PULL_SECRET)
-            )
 
         # filter out volumes with the same name
         spec.template.spec.volumes = list(
