@@ -105,8 +105,6 @@ def test_interactive_deployment_k8s_builder_user_secrets(monkeypatch):
     assert any(
         vm["name"] == "k8s-secret" for vm in pod.containers[0].volume_mounts)
     assert any(e["name"] == "third_env" for e in pod.containers[0].env)
-
-
     assert pod.security_context.fs_group == int(WORKFLOW_RUNTIME_USER_GID)
     assert (
         pod.security_context.fs_group_change_policy
