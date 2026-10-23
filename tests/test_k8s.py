@@ -107,25 +107,25 @@ def test_interactive_deployment_k8s_builder_user_secrets(monkeypatch):
     assert any(e["name"] == "third_env" for e in pod.containers[0].env)
 
 
-assert pod.security_context.fs_group == int(WORKFLOW_RUNTIME_USER_GID)
-assert (
-    pod.security_context.fs_group_change_policy
-    == REANA_RUNTIME_FS_GROUP_CHANGE_POLICY
-)
-assert (
-    pod.security_context.supplemental_groups
-    == REANA_RUNTIME_SESSIONS_SUPPLEMENTAL_GROUPS
-)
-assert pod.containers[0].security_context.run_as_user == int(
-    WORKFLOW_RUNTIME_USER_UID
-)
-assert pod.containers[0].security_context.run_as_group == int(
-    WORKFLOW_RUNTIME_USER_GID
-)
-assert pod.containers[0].security_context.run_as_non_root is True
-assert pod.containers[0].security_context.allow_privilege_escalation is False
-assert pod.containers[0].security_context.capabilities.drop == ["ALL"]
-assert pod.containers[0].security_context.seccomp_profile.type == "RuntimeDefault"
+    assert pod.security_context.fs_group == int(WORKFLOW_RUNTIME_USER_GID)
+    assert (
+        pod.security_context.fs_group_change_policy
+        == REANA_RUNTIME_FS_GROUP_CHANGE_POLICY
+    )
+    assert (
+        pod.security_context.supplemental_groups
+        == REANA_RUNTIME_SESSIONS_SUPPLEMENTAL_GROUPS
+    )
+    assert pod.containers[0].security_context.run_as_user == int(
+        WORKFLOW_RUNTIME_USER_UID
+    )
+    assert pod.containers[0].security_context.run_as_group == int(
+        WORKFLOW_RUNTIME_USER_GID
+    )
+    assert pod.containers[0].security_context.run_as_non_root is True
+    assert pod.containers[0].security_context.allow_privilege_escalation is False
+    assert pod.containers[0].security_context.capabilities.drop == ["ALL"]
+    assert pod.containers[0].security_context.seccomp_profile.type == "RuntimeDefault"
 
 
 @pytest.mark.parametrize("reserved_name", ["NOTEBOOK_ARGS", "REANA_WORKSPACE"])
