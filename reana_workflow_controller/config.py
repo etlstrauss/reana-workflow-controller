@@ -111,8 +111,7 @@ REANA_WORKFLOW_ENGINE_IMAGE_SNAKEMAKE = os.getenv(
 )
 """Snakemake workflow engine version."""
 
-REANA_KUBERNETES_JOBS_CPU_REQUEST = os.getenv(
-    "REANA_KUBERNETES_JOBS_CPU_REQUEST")
+REANA_KUBERNETES_JOBS_CPU_REQUEST = os.getenv("REANA_KUBERNETES_JOBS_CPU_REQUEST")
 """Default CPU request for user job containers.
 
 Please see the following URL for possible values
@@ -126,16 +125,14 @@ Please see the following URL for possible values
 https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#meaning-of-cpu.
 """
 
-REANA_KUBERNETES_JOBS_MEMORY_REQUEST = os.getenv(
-    "REANA_KUBERNETES_JOBS_MEMORY_REQUEST")
+REANA_KUBERNETES_JOBS_MEMORY_REQUEST = os.getenv("REANA_KUBERNETES_JOBS_MEMORY_REQUEST")
 """Default memory request for user job containers.
 
 Please see the following URL for possible values
 https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#meaning-of-memory.
 """
 
-REANA_KUBERNETES_JOBS_MEMORY_LIMIT = os.getenv(
-    "REANA_KUBERNETES_JOBS_MEMORY_LIMIT")
+REANA_KUBERNETES_JOBS_MEMORY_LIMIT = os.getenv("REANA_KUBERNETES_JOBS_MEMORY_LIMIT")
 """Default memory limit for user job containers. Exceeding this limit will terminate the container.
 
 Please see the following URL for possible values
@@ -182,8 +179,7 @@ Please see the following URL for possible values
 https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#meaning-of-memory.
 """
 
-REANA_KUBERNETES_JOBS_TIMEOUT_LIMIT = os.getenv(
-    "REANA_KUBERNETES_JOBS_TIMEOUT_LIMIT")
+REANA_KUBERNETES_JOBS_TIMEOUT_LIMIT = os.getenv("REANA_KUBERNETES_JOBS_TIMEOUT_LIMIT")
 """Default timeout for user's jobs in seconds. Exceeding this time will terminate the job.
 
 Please see the following URL for more details
@@ -199,8 +195,7 @@ Please see the following URL for more details
 https://kubernetes.io/docs/concepts/workloads/controllers/job/#job-termination-and-cleanup.
 """
 
-REANA_KUBERNETES_JOBS_MIN_USER_UID = os.getenv(
-    "REANA_KUBERNETES_JOBS_MIN_USER_UID")
+REANA_KUBERNETES_JOBS_MIN_USER_UID = os.getenv("REANA_KUBERNETES_JOBS_MIN_USER_UID")
 """Minimum accepted user runtime container UID that users can assign to their job
 containers via ``kubernetes_uid`` in ``reana.yaml``. Jobs requesting a smaller
 UID are refused at submission time with a clear error message. Forwarded to
@@ -299,8 +294,7 @@ REANA_OPENSEARCH_ENABLED = (
 )
 """OpenSearch enabled flag."""
 
-REANA_OPENSEARCH_HOST = os.getenv(
-    "REANA_OPENSEARCH_HOST", "reana-opensearch-master")
+REANA_OPENSEARCH_HOST = os.getenv("REANA_OPENSEARCH_HOST", "reana-opensearch-master")
 """OpenSearch host."""
 
 REANA_OPENSEARCH_PORT = os.getenv("REANA_OPENSEARCH_PORT", "9200")
@@ -430,8 +424,7 @@ def _parse_spec_validation_env_vars(raw_env_vars):
     """
     env_vars = json.loads(raw_env_vars)
     if not isinstance(env_vars, dict):
-        raise ValueError(
-            "REANA_WORKFLOW_VALIDATOR_ENV_VARS must be a JSON object.")
+        raise ValueError("REANA_WORKFLOW_VALIDATOR_ENV_VARS must be a JSON object.")
 
     invalid_names = sorted(
         name
@@ -463,8 +456,7 @@ default is generous; operators running such workflows can raise it further via
 the ``REANA_SPEC_VALIDATION_TIMEOUT`` environment variable."""
 
 SPEC_VALIDATION_MAX_TIMEOUT = int(
-    os.getenv("REANA_SPEC_VALIDATION_MAX_TIMEOUT",
-              str(SPEC_VALIDATION_TIMEOUT * 10))
+    os.getenv("REANA_SPEC_VALIDATION_MAX_TIMEOUT", str(SPEC_VALIDATION_TIMEOUT * 10))
 )
 """Upper bound (seconds) for a caller-supplied validation ``timeout`` override.
 A per-request ``timeout`` is clamped to ``[1, SPEC_VALIDATION_MAX_TIMEOUT]`` so a
@@ -494,8 +486,7 @@ SPEC_VALIDATION_POLL_INTERVAL = float(
 SPEC_VALIDATION_CPU_LIMIT = os.getenv("REANA_SPEC_VALIDATION_CPU_LIMIT", "1")
 """CPU limit for the sandboxed spec validation container."""
 
-SPEC_VALIDATION_MEMORY_LIMIT = os.getenv(
-    "REANA_SPEC_VALIDATION_MEMORY_LIMIT", "1Gi")
+SPEC_VALIDATION_MEMORY_LIMIT = os.getenv("REANA_SPEC_VALIDATION_MEMORY_LIMIT", "1Gi")
 """Memory limit for the sandboxed spec validation container (bounds spec loads
 that try to exhaust memory)."""
 
@@ -509,8 +500,7 @@ SPEC_VALIDATION_EPHEMERAL_STORAGE_LIMIT = os.getenv(
 )
 """Combined scratch-volume and container ephemeral-storage limit."""
 
-SPEC_VALIDATION_MAX_FILES = int(
-    os.getenv("REANA_SPEC_BUNDLE_MAX_FILES", "1000"))
+SPEC_VALIDATION_MAX_FILES = int(os.getenv("REANA_SPEC_BUNDLE_MAX_FILES", "1000"))
 """Maximum number of files copied into validator scratch storage."""
 
 SPEC_VALIDATION_MAX_BYTES = int(
@@ -577,8 +567,7 @@ WORKFLOW_ENGINE_NAME = "workflow-engine"
 REANA_GITLAB_HOST = os.getenv("REANA_GITLAB_HOST", "")
 """GitLab API HOST"""
 
-REANA_GITLAB_URL = "https://{}".format(
-    REANA_GITLAB_HOST) if REANA_GITLAB_HOST else ""
+REANA_GITLAB_URL = "https://{}".format(REANA_GITLAB_HOST) if REANA_GITLAB_HOST else ""
 """GitLab API URL, empty when GitLab is not configured."""
 
 REANA_HOSTNAME = os.getenv("REANA_HOSTNAME", "localhost")
@@ -590,8 +579,7 @@ REANA_HOSTPORT = os.getenv("REANA_HOSTPORT", "30443")
 REANA_URL = compose_reana_url(REANA_HOSTNAME, REANA_HOSTPORT)
 """REANA URL."""
 
-REANA_INGRESS_ANNOTATIONS = json.loads(
-    os.getenv("REANA_INGRESS_ANNOTATIONS", "{}"))
+REANA_INGRESS_ANNOTATIONS = json.loads(os.getenv("REANA_INGRESS_ANNOTATIONS", "{}"))
 """REANA Ingress annotations defined by the administrator."""
 
 REANA_INGRESS_CLASS_NAME = os.getenv("REANA_INGRESS_CLASS_NAME")
@@ -612,8 +600,7 @@ TRAEFIK_EXTERNAL = os.getenv("TRAEFIK_EXTERNAL", "false").lower() == "true"
 DASK_ENABLED = os.getenv("DASK_ENABLED", "true").lower() == "true"
 """Whether Dask is enabled in the cluster or not."""
 
-DASK_AUTOSCALER_ENABLED = os.getenv(
-    "DASK_AUTOSCALER_ENABLED", "true").lower() == "true"
+DASK_AUTOSCALER_ENABLED = os.getenv("DASK_AUTOSCALER_ENABLED", "true").lower() == "true"
 """Whether Dask autoscaler is enabled in the cluster or not."""
 
 REANA_DASK_CLUSTER_MAX_MEMORY_LIMIT = os.getenv(
@@ -698,8 +685,7 @@ REANA_RUNTIME_BATCH_TERMINATION_GRACE_PERIOD = int(
 The job controller needs to clean up all the running jobs before the end of the grace period.
 """
 
-CONTAINER_IMAGE_ALIAS_PREFIXES = [
-    "docker.io/", "docker.io/library/", "library/"]
+CONTAINER_IMAGE_ALIAS_PREFIXES = ["docker.io/", "docker.io/library/", "library/"]
 """Prefixes that can be removed from container image references to generate valid image aliases."""
 
 MAX_WORKFLOW_SHARING_MESSAGE_LENGTH = 5000
@@ -723,8 +709,7 @@ def _parse_runtime_fs_group_change_policy(value: str | None) -> str:
     if not policy:
         return "OnRootMismatch"
     if policy not in _VALID_RUNTIME_FS_GROUP_CHANGE_POLICIES:
-        valid_values = ", ".join(
-            sorted(_VALID_RUNTIME_FS_GROUP_CHANGE_POLICIES))
+        valid_values = ", ".join(sorted(_VALID_RUNTIME_FS_GROUP_CHANGE_POLICIES))
         raise ValueError(
             "Invalid REANA_RUNTIME_FS_GROUP_CHANGE_POLICY value: "
             f"{policy}. Valid values: {valid_values}"
@@ -753,8 +738,7 @@ def _parse_runtime_sessions_supplemental_groups(value: str | None) -> List[int]:
     return parsed_groups
 
 
-WORKSPACE_DISPLAY_FILE_LIMIT = int(
-    os.getenv("WORKSPACE_DISPLAY_FILE_LIMIT", "100000"))
+WORKSPACE_DISPLAY_FILE_LIMIT = int(os.getenv("WORKSPACE_DISPLAY_FILE_LIMIT", "100000"))
 """Maximum number of file entries returned by workspace listing endpoints."""
 
 REANA_RUNTIME_FS_GROUP_CHANGE_POLICY = _parse_runtime_fs_group_change_policy(
@@ -797,10 +781,8 @@ if _invalid_gc:
 REANA_DATASTORE_ENABLED = os.getenv("REANA_DATASTORE_ENABLED") == "true"
 """Set datastore (s3) sidecar for interactive sessions enabled or disabled"""
 
-if (REANA_DATASTORE_ENABLED):
-    REANA_DATASTORE_IMAGE = os.getenv(
-        "REANA_DATASTORE_IMAGE"
-    )
+if REANA_DATASTORE_ENABLED:
+    REANA_DATASTORE_IMAGE = os.getenv("REANA_DATASTORE_IMAGE")
     """Optional Image for datastore (s3) sidecar for interactive sessions"""
 
 else:

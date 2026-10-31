@@ -222,7 +222,7 @@ def _container_image_aliases(
     for prefix in prefixes:
         if image.startswith(prefix):
             # remove prefix
-            aliases.append(image[len(prefix):])
+            aliases.append(image[len(prefix) :])
         else:
             # add prefix
             aliases.append(prefix + image)
@@ -243,8 +243,7 @@ def _validate_interactive_session_image(type_: str, user_image: Optional[str]) -
     image = user_image or default_image
 
     if not image:
-        raise REANAInteractiveSessionError(
-            "Container image must be specified.")
+        raise REANAInteractiveSessionError("Container image must be specified.")
 
     if not config["allow_custom"]:
         # check if one of the aliases is in the recommended list
@@ -349,11 +348,9 @@ class WorkflowRunManager:
     def _get_merged_workflow_input_parameters(self, overwrite=None):
         """Return workflow input parameters merged with live ones, if given."""
         overwrite = overwrite or {}
-        input_parameters = dict(
-            self.workflow.get_input_parameters(), **overwrite)
+        input_parameters = dict(self.workflow.get_input_parameters(), **overwrite)
         if self.workflow.input_parameters:
-            input_parameters = dict(
-                input_parameters, **self.workflow.input_parameters)
+            input_parameters = dict(input_parameters, **self.workflow.input_parameters)
         return input_parameters
 
     def _get_merged_workflow_operational_options(self, overwrite=None):
@@ -389,8 +386,7 @@ class WorkflowRunManager:
             workflow_json=base64.standard_b64encode(
                 json.dumps(self.workflow.get_specification()).encode()
             ),
-            workflow_file=self.workflow.reana_specification.get(
-                "workflow").get("file"),
+            workflow_file=self.workflow.reana_specification.get("workflow").get("file"),
             parameters=base64.standard_b64encode(
                 json.dumps(
                     self._get_merged_workflow_input_parameters(
@@ -423,8 +419,7 @@ class WorkflowRunManager:
         )
         env_vars.extend(
             [
-                {"name": "REANA_USER_ID", "value": str(
-                    self.workflow.owner_id)},
+                {"name": "REANA_USER_ID", "value": str(self.workflow.owner_id)},
                 {
                     "name": "REANA_WORKFLOW_KERBEROS",
                     "value": str(self.requires_kerberos()),
@@ -577,8 +572,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
                 create_cvmfs_persistent_volume_claim()
 
         except ApiException as e:
-            msg = "Workflow engine/job controller pod " "creation failed {}".format(
-                e)
+            msg = "Workflow engine/job controller pod " "creation failed {}".format(e)
             logging.error(msg, exc_info=True)
             raise e
 
@@ -654,8 +648,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
         except ApiException as api_exception:
             action_completed = False
             raise REANAInteractiveSessionError(
-                "Connection to Kubernetes has failed:\n{}".format(
-                    api_exception)
+                "Connection to Kubernetes has failed:\n{}".format(api_exception)
             )
         except ReservedEnvironmentVariableError:
             # A user-input error (reserved secret name), not a server/infra
@@ -666,8 +659,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
         except Exception as e:
             action_completed = False
             raise REANAInteractiveSessionError(
-                "Unkown error while starting interactive workflow run:\n{}".format(
-                    e)
+                "Unkown error while starting interactive workflow run:\n{}".format(e)
             )
         finally:
             if not action_completed and kubernetes_objects:
@@ -724,8 +716,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
         except Exception as e:
             action_completed = False
             raise REANAInteractiveSessionError(
-                "Unkown error while stopping interactive session:\n{}".format(
-                    e)
+                "Unkown error while stopping interactive session:\n{}".format(e)
             )
         finally:
             if action_completed:
@@ -853,8 +844,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
                     "value": str(current_app.config["JOB_CONTROLLER_CONTAINER_PORT"]),
                 },
                 {"name": "REANA_JOB_CONTROLLER_SERVICE_HOST", "value": "localhost"},
-                {"name": "REANA_COMPONENT_PREFIX",
-                    "value": REANA_COMPONENT_PREFIX},
+                {"name": "REANA_COMPONENT_PREFIX", "value": REANA_COMPONENT_PREFIX},
                 {
                     "name": "REANA_COMPONENT_NAMING_SCHEME",
                     "value": REANA_COMPONENT_NAMING_SCHEME,
@@ -964,8 +954,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
                     "name": "K8S_USE_SECURITY_CONTEXT",
                     "value": str(K8S_USE_SECURITY_CONTEXT),
                 },
-                {"name": "K8S_CERN_EOS_AVAILABLE",
-                    "value": K8S_CERN_EOS_AVAILABLE},
+                {"name": "K8S_CERN_EOS_AVAILABLE", "value": K8S_CERN_EOS_AVAILABLE},
                 {
                     "name": "NSS_WRAPPER_GROUP",
                     "value": NSS_WRAPPER_GROUP_PATH,
@@ -982,8 +971,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
                 # reduce the number of open database connections kept in the pool
                 {"name": "SQLALCHEMY_POOL_SIZE", "value": "1"},
                 {"name": "REANA_STORAGE_BACKEND", "value": REANA_STORAGE_BACKEND},
-                {"name": "REANA_COMPONENT_PREFIX",
-                    "value": REANA_COMPONENT_PREFIX},
+                {"name": "REANA_COMPONENT_PREFIX", "value": REANA_COMPONENT_PREFIX},
                 {
                     "name": "REANA_COMPONENT_NAMING_SCHEME",
                     "value": REANA_COMPONENT_NAMING_SCHEME,
@@ -1070,8 +1058,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
                     "name": "REANA_KUBERNETES_JOBS_SCRATCH_VOLUME_SIZE_LIMIT",
                     "value": REANA_KUBERNETES_JOBS_SCRATCH_VOLUME_SIZE_LIMIT,
                 },
-                {"name": "WORKSPACE_PATHS",
-                    "value": json.dumps(WORKSPACE_PATHS)},
+                {"name": "WORKSPACE_PATHS", "value": json.dumps(WORKSPACE_PATHS)},
                 {
                     "name": "REANA_DATASTORE_IMAGE",
                     "value": json.dumps(REANA_DATASTORE_IMAGE).replace('"', ""),
@@ -1138,8 +1125,7 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
         ]
 
         job_controller_container.ports = [
-            {"containerPort":
-                current_app.config["JOB_CONTROLLER_CONTAINER_PORT"]}
+            {"containerPort": current_app.config["JOB_CONTROLLER_CONTAINER_PORT"]}
         ]
         pod_security_context = None
         if K8S_USE_SECURITY_CONTEXT:
@@ -1227,15 +1213,13 @@ class KubernetesWorkflowRunManager(WorkflowRunManager):
             spec.template.spec.init_containers.append(kerberos.init_container)
 
         # filter out volumes with the same name
-        spec.template.spec.volumes = list(
-            {v["name"]: v for v in volumes}.values())
+        spec.template.spec.volumes = list({v["name"]: v for v in volumes}.values())
 
         if os.getenv("FLASK_DEBUG", "").lower() in ("1", "true"):
             code_volume_name = "reana-code"
             code_mount_path = "/code"
             k8s_code_volume = client.V1Volume(name=code_volume_name)
-            k8s_code_volume.host_path = client.V1HostPathVolumeSource(
-                code_mount_path)
+            k8s_code_volume.host_path = client.V1HostPathVolumeSource(code_mount_path)
             spec.template.spec.volumes.append(k8s_code_volume)
 
             for container in spec.template.spec.containers:
